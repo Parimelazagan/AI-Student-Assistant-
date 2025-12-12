@@ -8,8 +8,8 @@ export function Footer() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Built with</span>
             <Heart className="h-4 w-4 text-destructive animate-pulse-soft" />
-            <span>using</span>
-            <span className="font-semibold text-primary">Lovable AI + GPT</span>
+            <span>and</span>
+            <span className="font-semibold text-primary">AI</span>
             <Sparkles className="h-4 w-4 text-primary animate-pulse-soft" />
           </div>
           <p className="text-xs text-muted-foreground">
