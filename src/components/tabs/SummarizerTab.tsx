@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export function SummarizerTab() {
   const [notes, setNotes] = useState("");
@@ -25,24 +26,47 @@ export function SummarizerTab() {
     setIsLoading(true);
     setSummary([]);
 
-    // Simulated AI response for demo
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const { data, error } = await supabase.functions.invoke("summarize", {
+        body: { notes },
+      });
 
-    const demoSummary = [
-      "📌 The main concept discussed involves understanding core principles",
-      "📌 Key points highlight the importance of systematic approach",
-      "📌 Examples demonstrate practical applications in real scenarios",
-      "📌 The conclusion emphasizes continuous learning and improvement",
-      "📌 Action items include reviewing materials and practicing exercises",
-    ];
+      if (error) {
+        throw error;
+      }
 
-    setSummary(demoSummary);
-    setIsLoading(false);
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-    toast({
-      title: "Summary generated!",
-      description: "Your notes have been summarized into key points.",
-    });
+      // Parse the summary into bullet points
+      const summaryText = data.summary as string;
+      const points = summaryText
+        .split("\n")
+        .filter((line) => line.trim().startsWith("📌"))
+        .map((line) => line.trim());
+
+      // If no bullet points found, split by newlines and add emoji
+      const finalPoints = points.length > 0 
+        ? points 
+        : summaryText.split("\n").filter((line) => line.trim()).map((line) => `📌 ${line.trim()}`);
+
+      setSummary(finalPoints);
+
+      toast({
+        title: "Summary generated!",
+        description: "Your notes have been summarized into key points.",
+      });
+    } catch (error) {
+      console.error("Summarize error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to summarize notes. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCopy = async () => {

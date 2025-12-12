@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Question {
   id: number;
@@ -36,74 +37,36 @@ export function QuizTab() {
     setSelectedAnswers({});
     setShowResults(false);
 
-    // Simulated AI response for demo
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      const { data, error } = await supabase.functions.invoke("quiz", {
+        body: { topic },
+      });
 
-    const demoQuestions: Question[] = [
-      {
-        id: 1,
-        question: "What is the primary purpose of the concept discussed?",
-        options: [
-          "To increase complexity",
-          "To improve efficiency and understanding",
-          "To reduce functionality",
-          "To eliminate processes",
-        ],
-        correctAnswer: 1,
-      },
-      {
-        id: 2,
-        question: "Which of the following is a key benefit mentioned?",
-        options: [
-          "Higher costs",
-          "Slower processing",
-          "Better organization and clarity",
-          "More confusion",
-        ],
-        correctAnswer: 2,
-      },
-      {
-        id: 3,
-        question: "What approach is recommended for implementation?",
-        options: [
-          "Random application",
-          "Systematic and structured approach",
-          "Avoiding all methods",
-          "Quick shortcuts only",
-        ],
-        correctAnswer: 1,
-      },
-      {
-        id: 4,
-        question: "According to the content, what leads to success?",
-        options: [
-          "Luck only",
-          "Avoiding practice",
-          "Consistent effort and learning",
-          "Ignoring feedback",
-        ],
-        correctAnswer: 2,
-      },
-      {
-        id: 5,
-        question: "What is the recommended final step?",
-        options: [
-          "Give up immediately",
-          "Skip review entirely",
-          "Review and apply learned concepts",
-          "Forget everything",
-        ],
-        correctAnswer: 2,
-      },
-    ];
+      if (error) {
+        throw error;
+      }
 
-    setQuestions(demoQuestions);
-    setIsLoading(false);
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-    toast({
-      title: "Quiz generated!",
-      description: "5 questions have been created. Good luck!",
-    });
+      const generatedQuestions = data.questions as Question[];
+      setQuestions(generatedQuestions);
+
+      toast({
+        title: "Quiz generated!",
+        description: `${generatedQuestions.length} questions have been created. Good luck!`,
+      });
+    } catch (error) {
+      console.error("Quiz generation error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate quiz. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSelectAnswer = (questionId: number, optionIndex: number) => {
