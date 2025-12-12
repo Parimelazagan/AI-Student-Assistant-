@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingDots } from "@/components/ui/LoadingSpinner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -56,40 +58,43 @@ export function ChatbotTab() {
     setInput("");
     setIsTyping(true);
 
-    // Simulated AI response for demo
-    await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 1000));
+    try {
+      // Prepare messages for AI (exclude welcome message, only send role and content)
+      const chatMessages = [...messages, userMessage]
+        .filter(m => m.id !== "welcome")
+        .map(m => ({ role: m.role, content: m.content }));
 
-    const responses: Record<string, string> = {
-      "binary search": "**Binary Search** is an efficient algorithm for finding an element in a sorted array.\n\n**How it works:**\n1. Compare the target with the middle element\n2. If target equals middle, we found it!\n3. If target is smaller, search the left half\n4. If target is larger, search the right half\n5. Repeat until found or array is exhausted\n\n**Time Complexity:** O(log n)\n**Space Complexity:** O(1) iterative, O(log n) recursive\n\n💡 **Tip:** Binary search requires a sorted array!",
-      "ai courses": "Here are some **excellent free AI/ML courses:**\n\n📚 **Beginner:**\n• Andrew Ng's Machine Learning (Coursera)\n• Fast.ai - Practical Deep Learning\n• Google's Machine Learning Crash Course\n\n📚 **Intermediate:**\n• Deep Learning Specialization (Coursera)\n• Stanford CS229 (YouTube)\n• MIT 6.S191 - Intro to Deep Learning\n\n📚 **Resources:**\n• Kaggle Learn - Hands-on tutorials\n• Papers With Code - Latest research\n\n🎯 Start with Andrew Ng's course—it's the gold standard!",
-      "study tips": "Here are **evidence-based study techniques:**\n\n🧠 **Active Recall:**\n• Test yourself instead of re-reading\n• Use flashcards (Anki is great!)\n\n⏰ **Spaced Repetition:**\n• Review material at increasing intervals\n• Don't cram—spread it out\n\n🍅 **Pomodoro Technique:**\n• 25 min focus, 5 min break\n• After 4 cycles, take a longer break\n\n📝 **Feynman Technique:**\n• Explain concepts in simple terms\n• If you can teach it, you know it\n\n💤 **Don't forget:** Sleep is essential for memory consolidation!",
-      "coding interviews": "**Coding Interview Preparation Guide:**\n\n📊 **Data Structures to Master:**\n• Arrays, Strings, Hash Maps\n• Trees, Graphs, Heaps\n• Stacks, Queues, Linked Lists\n\n🔢 **Key Algorithms:**\n• Sorting (Quick, Merge, Heap)\n• BFS/DFS, Dynamic Programming\n• Two Pointers, Sliding Window\n\n🎯 **Practice Platforms:**\n• LeetCode (do top 100)\n• HackerRank, CodeSignal\n• Pramp (mock interviews)\n\n💡 **Tips:**\n• Practice 1-2 problems daily\n• Focus on understanding patterns\n• Talk through your thought process",
-    };
+      const { data, error } = await supabase.functions.invoke("chat", {
+        body: { messages: chatMessages },
+      });
 
-    let responseContent = "That's a great question! Let me help you with that.\n\n";
-    
-    const lowerText = text.toLowerCase();
-    if (lowerText.includes("binary search")) {
-      responseContent = responses["binary search"];
-    } else if (lowerText.includes("ai") || lowerText.includes("courses") || lowerText.includes("course")) {
-      responseContent = responses["ai courses"];
-    } else if (lowerText.includes("study") || lowerText.includes("tip")) {
-      responseContent = responses["study tips"];
-    } else if (lowerText.includes("interview") || lowerText.includes("coding")) {
-      responseContent = responses["coding interviews"];
-    } else {
-      responseContent += "Based on your question, here are some key points to consider:\n\n• Break down the concept into smaller parts\n• Practice with examples\n• Connect it to what you already know\n• Teaching others helps solidify understanding\n\nWould you like me to explain any specific topic in more detail?";
+      if (error) {
+        console.error("Chat error:", error);
+        toast.error("Failed to get response. Please try again.");
+        setIsTyping(false);
+        return;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        setIsTyping(false);
+        return;
+      }
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.content || "I'm sorry, I couldn't generate a response. Please try again.",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsTyping(false);
     }
-
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: responseContent,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
-    setIsTyping(false);
   };
 
   const handleClearChat = () => {
